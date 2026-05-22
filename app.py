@@ -63,13 +63,14 @@ header {
 
 /* Chat input */
 [data-testid="stChatInput"] {
-    background-color: #111827;
-    color: #ffffff !important;
+    background-color: #111827 !important;
+    text_color: #ffffff !important;
 }
 
 /* Text input area */
 textarea {
-    color: black!important;
+    color: 111827;
+    
 }
 
 /* Upload box */
