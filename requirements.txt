@@ -11,3 +11,4 @@ pypdf
 python-dotenv
 torchvision
 langchain_mistralai
+protobuf<=3.20.3"
