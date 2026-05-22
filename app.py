@@ -64,6 +64,7 @@ header {
 /* Chat input */
 [data-testid="stChatInput"] {
     background-color: #111827;
+    color: #ffffff !important;
 }
 
 /* Text input area */
