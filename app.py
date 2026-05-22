@@ -1,4 +1,5 @@
 import os
+import uuid
 import tempfile
 import streamlit as st
 
@@ -30,22 +31,18 @@ st.markdown("""
     color: white;
 }
 
-/* Hide streamlit header */
 header {
     visibility: hidden;
 }
 
-/* Sidebar */
 [data-testid="stSidebar"] {
     background-color: #111827;
 }
 
-/* Main container */
 .block-container {
     padding-top: 2rem;
 }
 
-/* Buttons */
 .stButton button {
     width: 100%;
     background-color: #2563eb;
@@ -61,26 +58,16 @@ header {
     color: white;
 }
 
-/* Chat input */
 [data-testid="stChatInput"] {
     background-color: #111827 !important;
-    text_color: #ffffff !important;
 }
 
-/* Text input area */
-textarea {
-    color: 111827;
-    
-}
-
-/* Upload box */
 [data-testid="stFileUploader"] {
     background-color: #1e293b;
     padding: 1rem;
     border-radius: 12px;
 }
 
-/* Messages */
 .user-msg {
     background-color: #2563eb;
     padding: 1rem;
@@ -151,24 +138,28 @@ def build_retriever(pdf_bytes):
         tmp.write(pdf_bytes)
         path = tmp.name
 
-    loader = PyPDFLoader(path)
-    docs = loader.load()
+    try:
+        loader = PyPDFLoader(path)
+        docs = loader.load()
+    finally:
+        os.unlink(path)  # always clean up temp file
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200
     )
-
     chunks = splitter.split_documents(docs)
 
     vectorstore = Chroma.from_documents(
         documents=chunks,
-        embedding=get_embeddings()
+        embedding=get_embeddings(),
+        collection_name=f"docmind_{uuid.uuid4().hex}"  # fresh collection every upload
     )
 
-    retriever = vectorstore.as_retriever()
-
-    return retriever
+    return vectorstore.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 4, "fetch_k": 25, "lambda_mult": 0.7}
+    )
 
 
 # ─────────────────────────────────────────────
@@ -244,14 +235,11 @@ with st.sidebar:
 
         else:
             with st.spinner("Processing..."):
-
-                retriever = build_retriever(
-                    uploaded_file.read()
-                )
+                retriever = build_retriever(uploaded_file.read())
 
                 st.session_state.retriever = retriever
                 st.session_state.pdf_name = uploaded_file.name
-                st.session_state.chat_history = []
+                st.session_state.chat_history = []  # reset chat on new document
 
                 st.success("Document ready.")
 
@@ -276,48 +264,29 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
 # CHAT HISTORY
 for chat in st.session_state.chat_history:
 
     st.markdown(
-        f"""
-        <div class="user-msg">
-        <b>You:</b><br>
-        {chat["question"]}
-        </div>
-        """,
+        f'<div class="user-msg"><b>You:</b><br>{chat["question"]}</div>',
         unsafe_allow_html=True
     )
 
     st.markdown(
-        f"""
-        <div class="ai-msg">
-        <b>DocMind:</b><br>
-        {chat["answer"]}
-        </div>
-        """,
+        f'<div class="ai-msg"><b>DocMind:</b><br>{chat["answer"]}</div>',
         unsafe_allow_html=True
     )
 
-
 # CHAT INPUT
-query = st.chat_input(
-    "Ask a question about your PDF..."
-)
+query = st.chat_input("Ask a question about your PDF...")
 
-
-# ASK
 if query:
 
     if st.session_state.retriever is None:
-
         st.warning("Please upload and process a PDF first.")
 
     else:
-
         with st.spinner("Thinking..."):
-
             answer = ask_question(query)
 
         st.session_state.chat_history.append({
