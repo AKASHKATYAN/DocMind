@@ -84,7 +84,7 @@ textarea {
     padding: 1rem;
     border-radius: 12px;
     margin-bottom: 0.7rem;
-    color: black;
+    color: white;
 }
 
 .ai-msg {
